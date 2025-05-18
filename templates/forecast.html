@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Forecast</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Forecast</h1>
+
+    <p>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a> |
+        <a href="{{ url_for('forecast') }}">Forecast</a> |
+        <a href="{{ url_for('upload') }}">Upload CSV</a> |
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </p>
+
+    <h2>Select file, column and forecast period</h2>
+    <form method="post">
+        <label for="file_id">Select File:</label>
+        <select name="file_id" id="file_id">
+            {% for file in files %}
+                <option value="{{ file.id }}"
+                    {% if selected_file and selected_file.id == file.id %}selected{% endif %}>
+                    {{ file.filename }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <label for="column_name">Select Column:</label>
+        <select name="column_name" id="column_name">
+            {% set columns = ['temp_avg', 'temp_max', 'temp_min', 'precipitation', 'humidity', 'wind', 'pressure'] %}
+            {% for col in columns %}
+                <option value="{{ col }}"
+                    {% if selected_column == col %}selected{% endif %}>
+                    {{ col }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <label for="future_days">Days to predict:</label>
+        <input type="number" name="future_days" id="future_days" value="{{ future_days or 30 }}" min="1" max="1000" required>
+
+        <input type="submit" value="Generate Forecast">
+    </form>
+
+    {% if plot_data %}
+        <h2>Forecast for {{ selected_file.filename }} ({{ selected_column }})</h2>
+        {{ plot_data | safe }}
+        <p><a href="{{ url_for('download_forecast') }}" class="button">Download Forecast CSV</a></p>
+    {% endif %}
+
+    <!-- Spinner overlay -->
+    <div id="loadingOverlay">
+        <div id="spinner"></div>
+    </div>
+
+    <!-- External JS -->
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+</body>
+</html>

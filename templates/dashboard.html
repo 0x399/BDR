@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Hello, you are logged in.</h1>
+
+    <p>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a> |
+        <a href="{{ url_for('forecast') }}">Forecast</a> |
+        <a href="{{ url_for('upload') }}">Upload CSV</a> |
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </p>
+
+
+    <h2>Your Uploaded Files</h2>
+    {% if files %}
+        <ul>
+            {% for file in files %}
+                <li>
+                    {{ file.filename }}
+                    [<a class="show-plot" href="{{ url_for('dashboard', plot_file_id=file.id) }}">Show Plot</a>]
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>You haven't uploaded any files yet.</p>
+    {% endif %}
+
+    {% if selected_file %}
+        <h3>Вибір періоду для побудови графіків</h3>
+        <form method="get" action="{{ url_for('dashboard') }}">
+            <input type="hidden" name="plot_file_id" value="{{ selected_file.id }}">
+
+            <label for="start_date">Початкова дата:</label>
+            <input type="date" name="start_date" id="start_date"
+                   value="{{ request.args.get('start_date', first_date_html) }}"
+                   min="{{ first_date_html }}" max="{{ last_date_html }}">
+
+            <label for="end_date">Кінцева дата:</label>
+            <input type="date" name="end_date" id="end_date"
+                   value="{{ request.args.get('end_date', last_date_html) }}"
+                   min="{{ first_date_html }}" max="{{ last_date_html }}">
+
+            <input type="submit" value="Оновити графіки">
+        </form>
+
+        {% if first_date and last_date %}
+            <p><strong>Період даних (після фільтрації):</strong> {{ first_date }} — {{ last_date }}</p>
+        {% endif %}
+    {% endif %}
+
+    {% if img_avg and img_max and img_min %}
+        <h2>Plots for {{ selected_file.filename }}</h2>
+        <div class="plot-container">
+            <div class="plot-box">
+                <h3>Середня температура</h3>
+                {{ img_avg | safe }}
+            </div>
+            <div class="plot-box">
+                <h3>Мінімальна температура</h3>
+                {{ img_min | safe }}
+            </div>
+            <div class="plot-box">
+                <h3>Максимальна температура</h3>
+                {{ img_max | safe }}
+            </div>
+            <div class="plot-box">
+                <h3>Швидкість вітру</h3>
+                {{ img_wind | safe }}
+            </div>
+            <div class="plot-box">
+                <h3>Атмосферний тиск</h3>
+                {{ img_pressure | safe }}
+            </div>
+            <div class="plot-box">
+                <h3>Вологість повітря</h3>
+                {{ img_humidity | safe }}
+            </div>
+            <div class="plot-box">
+                <h3>Кількість опадів</h3>
+                {{ img_precipitation | safe }}
+            </div>
+        </div>
+
+
+        <h2>Лінійна регресія ({{ selected_file.filename }})</h2>
+        <div class="plot-container-grid">
+            <div class="plot-box">
+                <h3>Середня температура (лінійна регресія)</h3>
+                <img class="enlargeable" src="data:image/png;base64,{{ img_avg_regression }}" alt="Average Temperature Regression Plot">
+            </div>
+            <div class="plot-box">
+                <h3>Максимальна температура (лінійна регресія)</h3>
+                <img class="enlargeable" src="data:image/png;base64,{{ img_max_regression }}" alt="Max Temperature Regression Plot">
+            </div>
+            <div class="plot-box">
+                <h3>Мінімальна температура (лінійна регресія)</h3>
+                <img class="enlargeable" src="data:image/png;base64,{{ img_min_regression }}" alt="Min Temperature Regression Plot">
+            </div>
+            <div class="plot-box">
+                <h3>Кількість опадів (лінійна регресія)</h3>
+                <img class="enlargeable" src="data:image/png;base64,{{ img_precipitation_regression }}" alt="Precipitation Regression Plot">
+            </div>
+            <div class="plot-box">
+                <h3>Вологість повітря (лінійна регресія)</h3>
+                <img class="enlargeable" src="data:image/png;base64,{{ img_humidity_regression }}" alt="Humidity Regression Plot">
+            </div>
+            <div class="plot-box">
+                <h3>Швидкість вітру (лінійна регресія)</h3>
+                <img class="enlargeable" src="data:image/png;base64,{{ img_wind_regression }}" alt="Wind Regression Plot">
+            </div>
+            <div class="plot-box">
+                <h3>Атмосферний тиск (лінійна регресія)</h3>
+                <img class="enlargeable" src="data:image/png;base64,{{ img_pressure_regression }}" alt="Pressure Regression Plot">
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Modal for enlarged image -->
+    <div id="imgModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <!-- Spinner overlay -->
+    <div id="loadingOverlay">
+        <div id="spinner"></div>
+    </div>
+
+    <!-- External JS -->
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+</body>
+</html>
