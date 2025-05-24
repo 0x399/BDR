@@ -1,232 +1,243 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
+
 <head>
-    <meta charset="UTF-8">
-    <title>Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <style>
-        .flex-container {
-            display: flex;
-            gap: 2rem;
-            align-items: flex-start;
-        }
-        .flex-item {
-            flex: 1;
-        }
-        .file-list-box {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            padding: 1rem;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .file-button {
-            display: block;
-            width: calc(100% - 4px);
-            padding: 10px;
-            margin-bottom: 10px;
-            background-color: #f0f0f0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            text-align: left;
-            text-decoration: none;
-            color: #333;
-            transition: background-color 0.3s;
-            box-sizing: border-box;
-        }
-        .file-button:hover {
-            background-color: #dcdcdc;
-        }
-        .centered-title {
-            text-align: center;
-        }
-        .month-form {
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Метео-Дашборд</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <style>
+    body {
+      background-color: #f8fafc;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .navbar-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      background-color: #212529;
+      color: white;
+      width: 100%;
+    }
+    .nav-left a, .nav-right a {
+      margin-right: 1rem;
+      text-decoration: none;
+      color: white;
+    }
+    .nav-left a:hover, .nav-right a:hover {
+      text-decoration: underline;
+    }
+    .plot-container-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 2rem;
+    }
+    .plot-box {
+      margin-top: 2rem;
+      padding: 1rem;
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+    }
+    .plot-box img {
+      width: 100%;
+      height: auto;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      padding-top: 60px;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.8);
+    }
+    .modal-content {
+      margin: auto;
+      display: block;
+      max-width: 95vw;
+      max-height: 95vh;
+    }
+    .close {
+      position: absolute;
+      top: 15px;
+      right: 35px;
+      color: #fff;
+      font-size: 40px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .plotly-graph {
+      width: 100% !important;
+      height: auto !important;
+    }
+  </style>
 </head>
+
 <body>
-    <header class="navbar">
-        <nav class="navbar-content">
-            <div class="nav-left">
-                <a href="{{ url_for('dashboard') }}">Дашборд</a>
-                <a href="{{ url_for('forecast') }}">Прогноз</a>
-                <a href="{{ url_for('upload') }}">Завантажити CSV</a>
-            </div>
-            <div class="nav-right">
-                <span class="welcome-text">Ласкаво просимо, {{ current_user.username }}</span>
-                <a href="{{ url_for('logout') }}">Logout</a>
-            </div>
-        </nav>
-    </header>
+  <header class="navbar w-100">
+    <nav class="navbar-content">
+      <div class="nav-left d-flex gap-3">
+        <a href="{{ url_for('dashboard') }}">Дашборд</a>
+        <a href="{{ url_for('forecast') }}">Прогноз</a>
+        <a href="{{ url_for('upload') }}">Завантажити CSV</a>
+      </div>
+      <div class="nav-right">
+        <span class="welcome-text">Ласкаво просимо, {{ current_user.username }}</span>
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+      </div>
+    </nav>
+  </header>
 
-    <div class="flex-container">
-        <div class="flex-item">
-            <h2 class="centered-title">Your Uploaded Files</h2>
-            <div class="file-list-box">
-                {% if files %}
-                    {% for file in files %}
-                        <a class="file-button" href="{{ url_for('dashboard', plot_file_id=file.id) }}">{{ file.filename }}</a>
-                    {% endfor %}
-                {% else %}
-                    <p>You haven't uploaded any files yet.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="flex-item">
-            {% if available_months %}
-                <h2 class="centered-title">Місячна статистика</h2>
-                <form method="get" action="{{ url_for('dashboard') }}" class="month-form">
-                    <input type="hidden" name="plot_file_id" value="{{ selected_file.id }}">
-                    {% if request.args.get('start_date') %}
-                        <input type="hidden" name="start_date" value="{{ request.args.get('start_date') }}">
-                        <input type="hidden" name="end_date" value="{{ request.args.get('end_date') }}">
-                    {% endif %}
-
-                    <label for="selected_month">Оберіть місяць:</label>
-                    <select name="selected_month" id="selected_month">
-                        <option value="">-- Всі --</option>
-                        {% for month in available_months %}
-                            <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>{{ month }}</option>
-                        {% endfor %}
-                    </select>
-                    <input type="submit" value="Показати">
-                </form>
-
-                {% if selected_month and monthly_stats %}
-                    <table class="monthly-stats">
-                        <thead>
-                            <tr>
-                                {% for col in monthly_stats[0].keys() %}
-                                    <th>{{ col }}</th>
-                                {% endfor %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in monthly_stats %}
-                                <tr>
-                                    {% for value in row.values() %}
-                                        <td>{{ value }}</td>
-                                    {% endfor %}
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% elif selected_month %}
-                    <p><em>Немає статистики для обраного місяця.</em></p>
-                {% endif %}
-            {% endif %}
-        </div>
-    </div>
-
-    {% if selected_file %}
-        <h3>Вибір періоду для побудови графіків</h3>
-        <form method="get" action="{{ url_for('dashboard') }}">
-            <input type="hidden" name="plot_file_id" value="{{ selected_file.id }}">
-            {% if selected_month %}
-                <input type="hidden" name="selected_month" value="{{ selected_month }}">
-            {% endif %}
-
-            <label for="start_date">Початкова дата:</label>
-            <input type="date" name="start_date" id="start_date"
-                   value="{{ request.args.get('start_date', first_date_html) }}"
-                   min="{{ first_date_html }}" max="{{ last_date_html }}">
-
-            <label for="end_date">Кінцева дата:</label>
-            <input type="date" name="end_date" id="end_date"
-                   value="{{ request.args.get('end_date', last_date_html) }}"
-                   min="{{ first_date_html }}" max="{{ last_date_html }}">
-
-            <input type="submit" value="Оновити графіки">
-        </form>
-
-        {% if first_date and last_date %}
-            <p><strong>Період даних (після фільтрації):</strong> {{ first_date }} — {{ last_date }}</p>
+  <div class="container mt-4">
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h5>Ваші Завантажені Файли</h5>
+        {% if files %}
+          {% for file in files %}
+            <a class="btn btn-outline-secondary w-100 mb-2 text-start" href="{{ url_for('dashboard', plot_file_id=file.id) }}">{{ file.filename }}</a>
+          {% endfor %}
+        {% else %}
+          <p>Файли не знайдено.</p>
         {% endif %}
-    {% endif %}
+      </div>
 
-    {% if img_avg and img_max and img_min %}
-        <h2>Plots for {{ selected_file.filename }}</h2>
-        <div class="plot-container">
-            <div class="plot-box">
-                <h3>Середня температура</h3>
-                {{ img_avg | safe }}
+      {% if selected_file %}
+      <div class="card p-3 mt-4">
+        <h5>Вибір періоду для побудови графіків</h5>
+        <form method="get" action="{{ url_for('dashboard') }}">
+          <input type="hidden" name="plot_file_id" value="{{ selected_file.id }}">
+          {% if selected_month %}
+            <input type="hidden" name="selected_month" value="{{ selected_month }}">
+          {% endif %}
+          <div class="row g-2 align-items-center">
+            <div class="col">
+              <label for="start_date" class="form-label">Початкова дата</label>
+              <input type="date" class="form-control" name="start_date" id="start_date"
+                     value="{{ request.args.get('start_date', first_date_html) }}"
+                     min="{{ first_date_html }}" max="{{ last_date_html }}">
             </div>
-            <div class="plot-box">
-                <h3>Мінімальна температура</h3>
-                {{ img_min | safe }}
+            <div class="col">
+              <label for="end_date" class="form-label">Кінцева дата</label>
+              <input type="date" class="form-control" name="end_date" id="end_date"
+                     value="{{ request.args.get('end_date', last_date_html) }}"
+                     min="{{ first_date_html }}" max="{{ last_date_html }}">
             </div>
-            <div class="plot-box">
-                <h3>Максимальна температура</h3>
-                {{ img_max | safe }}
+            <div class="col-auto align-self-end">
+              <button class="btn btn-primary">Оновити</button>
             </div>
-            <div class="plot-box">
-                <h3>Швидкість вітру</h3>
-                {{ img_wind | safe }}
-            </div>
-            <div class="plot-box">
-                <h3>Атмосферний тиск</h3>
-                {{ img_pressure | safe }}
-            </div>
-            <div class="plot-box">
-                <h3>Вологість повітря</h3>
-                {{ img_humidity | safe }}
-            </div>
-            <div class="plot-box">
-                <h3>Кількість опадів</h3>
-                {{ img_precipitation | safe }}
-            </div>
-        </div>
-
-        <h2>Лінійна регресія ({{ selected_file.filename }})</h2>
-        <div class="plot-container-grid-3">
-            <div class="plot-box">
-                <h3>Середня температура (лінійна регресія)</h3>
-                <img class="enlargeable" src="data:image/png;base64,{{ img_avg_regression }}" alt="Average Temperature Regression Plot">
-            </div>
-            <div class="plot-box">
-                <h3>Максимальна температура (лінійна регресія)</h3>
-                <img class="enlargeable" src="data:image/png;base64,{{ img_max_regression }}" alt="Max Temperature Regression Plot">
-            </div>
-            <div class="plot-box">
-                <h3>Мінімальна температура (лінійна регресія)</h3>
-                <img class="enlargeable" src="data:image/png;base64,{{ img_min_regression }}" alt="Min Temperature Regression Plot">
-            </div>
-            <div class="plot-box">
-                <h3>Кількість опадів (лінійна регресія)</h3>
-                <img class="enlargeable" src="data:image/png;base64,{{ img_precipitation_regression }}" alt="Precipitation Regression Plot">
-            </div>
-            <div class="plot-box">
-                <h3>Вологість повітря (лінійна регресія)</h3>
-                <img class="enlargeable" src="data:image/png;base64,{{ img_humidity_regression }}" alt="Humidity Regression Plot">
-            </div>
-            <div class="plot-box">
-                <h3>Швидкість вітру (лінійна регресія)</h3>
-                <img class="enlargeable" src="data:image/png;base64,{{ img_wind_regression }}" alt="Wind Regression Plot">
-            </div>
-            <div class="plot-box">
-                <h3>Атмосферний тиск (лінійна регресія)</h3>
-                <img class="enlargeable" src="data:image/png;base64,{{ img_pressure_regression }}" alt="Pressure Regression Plot">
-            </div>
-        </div>
-    {% endif %}
-
-    <!-- Modal for enlarged image -->
-    <div id="imgModal" class="modal">
-        <span class="close">&times;</span>
-        <img class="modal-content" id="modalImage">
+          </div>
+        </form>
+        {% if first_date and last_date %}
+          <p class="mt-2">Період даних (після фільтрації): <strong>{{ first_date }} — {{ last_date }}</strong></p>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
 
-    <!-- Spinner overlay -->
-    <div id="loadingOverlay">
-        <div id="spinner"></div>
-    </div>
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h5>Місячна статистика</h5>
+        {% if available_months %}
+        <form method="get" action="{{ url_for('dashboard') }}">
+          <input type="hidden" name="plot_file_id" value="{{ selected_file.id }}">
+          {% if request.args.get('start_date') %}
+            <input type="hidden" name="start_date" value="{{ request.args.get('start_date') }}">
+            <input type="hidden" name="end_date" value="{{ request.args.get('end_date') }}">
+          {% endif %}
+          <div class="mb-2">
+            <label for="selected_month" class="form-label">Оберіть місяць:</label>
+            <select name="selected_month" id="selected_month" class="form-select">
+              <option value="">-- Всі --</option>
+              {% for month in available_months %}
+                <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>{{ month }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-outline-primary w-100">Показати</button>
+        </form>
+        {% endif %}
 
-    <!-- External JS -->
-    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+        {% if selected_month and monthly_stats %}
+        <div class="table-responsive mt-3">
+          <table class="table table-bordered table-sm">
+            <thead class="table-light">
+              <tr>
+                {% for col in monthly_stats[0].keys() %}
+                  <th>{{ col }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in monthly_stats %}
+                <tr>
+                  {% for value in row.values() %}
+                    <td>{{ value }}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% elif selected_month %}
+          <p class="text-muted"><em>Немає статистики для обраного місяця.</em></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if img_avg and img_max and img_min %}
+  <div class="mt-5">
+    <h4>Графіки температури та параметрів</h4>
+    <div class="plot-container-grid-3">
+      <div class="plot-box"><h6>Середня температура</h6>{{ img_avg | safe }}</div>
+      <div class="plot-box"><h6>Мінімальна температура</h6>{{ img_min | safe }}</div>
+      <div class="plot-box"><h6>Максимальна температура</h6>{{ img_max | safe }}</div>
+      <div class="plot-box"><h6>Швидкість вітру</h6>{{ img_wind | safe }}</div>
+      <div class="plot-box"><h6>Атмосферний тиск</h6>{{ img_pressure | safe }}</div>
+      <div class="plot-box"><h6>Вологість повітря</h6>{{ img_humidity | safe }}</div>
+      <div class="plot-box"><h6>Кількість опадів</h6>{{ img_precipitation | safe }}</div>
+    </div>
+  </div>
+
+  <div class="mt-5">
+    <h4>Лінійна регресія</h4>
+    <div class="plot-container-grid-3">
+      <div class="plot-box"><h6>Середня температура</h6><img class="enlargeable img-fluid" src="data:image/png;base64,{{ img_avg_regression }}" alt="Average Temperature Regression Plot"></div>
+      <div class="plot-box"><h6>Максимальна температура</h6><img class="enlargeable img-fluid" src="data:image/png;base64,{{ img_max_regression }}" alt="Max Temperature Regression Plot"></div>
+      <div class="plot-box"><h6>Мінімальна температура</h6><img class="enlargeable img-fluid" src="data:image/png;base64,{{ img_min_regression }}" alt="Min Temperature Regression Plot"></div>
+      <div class="plot-box"><h6>Кількість опадів</h6><img class="enlargeable img-fluid" src="data:image/png;base64,{{ img_precipitation_regression }}" alt="Precipitation Regression Plot"></div>
+      <div class="plot-box"><h6>Вологість повітря</h6><img class="enlargeable img-fluid" src="data:image/png;base64,{{ img_humidity_regression }}" alt="Humidity Regression Plot"></div>
+      <div class="plot-box"><h6>Швидкість вітру</h6><img class="enlargeable img-fluid" src="data:image/png;base64,{{ img_wind_regression }}" alt="Wind Regression Plot"></div>
+      <div class="plot-box"><h6>Атмосферний тиск</h6><img class="enlargeable img-fluid" src="data:image/png;base64,{{ img_pressure_regression }}" alt="Pressure Regression Plot"></div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+  <div id="imgModal" class="modal">
+    <span class="close">&times;</span>
+    <img class="modal-content" id="modalImage">
+  </div>
+
+  <script>
+    document.querySelectorAll('.enlargeable').forEach(img => {
+      img.addEventListener('click', function () {
+        const modal = document.getElementById('imgModal');
+        const modalImg = document.getElementById('modalImage');
+        modal.style.display = 'block';
+        modalImg.src = this.src;
+      });
+    });
+    document.querySelector('.close')?.addEventListener('click', function () {
+      document.getElementById('imgModal').style.display = 'none';
+    });
+  </script>
 </body>
 </html>

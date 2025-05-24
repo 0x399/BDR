@@ -88,6 +88,7 @@ def calculate_monthly_stats(df):
     df = df[pd.notnull(df['date'])]
 
     df['month'] = df['date'].dt.to_period('M')
+    df['precipitation'] = pd.to_numeric(df['precipitation'], errors='coerce')
 
     stats = df.groupby('month').agg({
         'temp_max': 'max',
@@ -328,7 +329,7 @@ def forecast():
         selected_file = file_record
 
         # Store forecast data temporarily in session
-        session['forecast_data'] = forecast_df.to_json(orient='split')
+        session['forecast_data'] = forecast_df.to_json(orient='split', date_format='iso')
         session['forecast_filename'] = f"{file_record.filename}_forecast_{selected_column}.csv"
 
         # Генерація рекомендацій
@@ -372,7 +373,10 @@ def download_forecast():
         return redirect(url_for('forecast'))
 
     forecast_df = pd.read_json(forecast_json, orient='split')
-    forecast_df['ds'] = pd.to_datetime(forecast_df['ds']).dt.strftime('%Y-%m-%d')
+
+    # Explicitly convert 'ds' to datetime
+    if 'ds' in forecast_df.columns:
+        forecast_df['ds'] = pd.to_datetime(forecast_df['ds'], errors='coerce')
 
     forecast_df = forecast_df.rename(columns={
         'ds': 'date',
@@ -380,6 +384,12 @@ def download_forecast():
         'yhat_lower': 'lower_bound',
         'yhat_upper': 'upper_bound'
     })
+
+    forecast_df['date'] = forecast_df['date'].dt.strftime('%Y-%m-%d')
+
+    forecast_df['forecast'] = forecast_df['forecast'].round(1)
+    forecast_df['lower_bound'] = forecast_df['lower_bound'].round(1)
+    forecast_df['upper_bound'] = forecast_df['upper_bound'].round(1)
 
     # Create in-memory buffer
     from io import StringIO
