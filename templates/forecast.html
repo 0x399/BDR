@@ -4,16 +4,35 @@
     <meta charset="UTF-8">
     <title>Forecast</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .alerts {
+            background-color: #fff8e1;
+            border-left: 4px solid #ff9800;
+            padding: 10px;
+            margin: 20px 0;
+        }
+        .alerts ul {
+            margin: 0;
+            padding-left: 1.2em;
+        }
+    </style>
 </head>
 <body>
-    <h1>Forecast</h1>
+    <header class="navbar">
+        <nav class="navbar-content">
+            <div class="nav-left">
+                <a href="{{ url_for('dashboard') }}">Дашборд</a>
+                <a href="{{ url_for('forecast') }}">Прогноз</a>
+                <a href="{{ url_for('upload') }}">Завантажити CSV</a>
+            </div>
+            <div class="nav-right">
+                <span class="welcome-text">Ласкаво просимо, {{ current_user.username }}</span>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </nav>
+    </header>
 
-    <p>
-        <a href="{{ url_for('dashboard') }}">Dashboard</a> |
-        <a href="{{ url_for('forecast') }}">Forecast</a> |
-        <a href="{{ url_for('upload') }}">Upload CSV</a> |
-        <a href="{{ url_for('logout') }}">Logout</a>
-    </p>
+    <h1>Forecast</h1>
 
     <h2>Select file, column and forecast period</h2>
     <form method="post">
@@ -48,6 +67,17 @@
         <h2>Forecast for {{ selected_file.filename }} ({{ selected_column }})</h2>
         {{ plot_data | safe }}
         <p><a href="{{ url_for('download_forecast') }}" class="button">Download Forecast CSV</a></p>
+    {% endif %}
+
+    {% if alerts %}
+        <div class="alerts">
+            <h3>Рекомендації:</h3>
+            <ul>
+                {% for msg in alerts %}
+                    <li>{{ msg }}</li>
+                {% endfor %}
+            </ul>
+        </div>
     {% endif %}
 
     <!-- Spinner overlay -->

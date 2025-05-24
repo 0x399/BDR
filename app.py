@@ -310,6 +310,7 @@ def forecast():
     selected_file = None
     future_days = selected_column = None
     forecast_df = None
+    alerts = []  # список для попереджень
 
     if request.method == 'POST':
         file_id = int(request.form['file_id'])
@@ -321,19 +322,44 @@ def forecast():
             flash("Unauthorized access to file")
             return redirect(url_for('forecast'))
 
-        plot_data, forecast_df = generate_prophet_forecast_plot(file_record.filepath, future_days, selected_column)
+        plot_data, forecast_df = generate_prophet_forecast_plot(
+            file_record.filepath, future_days, selected_column
+        )
         selected_file = file_record
 
         # Store forecast data temporarily in session
         session['forecast_data'] = forecast_df.to_json(orient='split')
         session['forecast_filename'] = f"{file_record.filename}_forecast_{selected_column}.csv"
 
+        # Генерація рекомендацій
+        if forecast_df is not None and not forecast_df.empty:
+            latest_values = forecast_df.tail(5)
+            yhat_min = latest_values['yhat'].min()
+            yhat_max = latest_values['yhat'].max()
+            yhat_mean = latest_values['yhat'].mean()
+
+            if (selected_column == 'temp_min' or selected_column == 'temp_avg') and yhat_min < 0:
+                alerts.append("⚠ Очікується похолодання — накрийте рослини, утепліть техніку.")
+            if (selected_column == 'temp_max' or selected_column == 'temp_avg') and yhat_max > 30:
+                alerts.append("☀ Очікується спека — забезпечте полив і притінення.")
+            if selected_column == 'precipitation' and yhat_mean < 1:
+                alerts.append("💧 Низькі опади — можливий дефіцит вологи.")
+            if selected_column == 'wind' and yhat_max > 10:
+                alerts.append("💨 Потенційно сильний вітер — закріпіть легкі конструкції.")
+            if selected_column == 'pressure':
+                if yhat_min < 735:
+                    alerts.append("🌫 Низький тиск — можливе зростання вологості, хмарність.")
+                if yhat_max > 760:
+                    alerts.append("🌤 Високий тиск — ймовірна ясна, суха погода.")
+
     return render_template('forecast.html',
                            files=files,
                            plot_data=plot_data,
                            selected_file=selected_file,
                            selected_column=selected_column,
-                           future_days=future_days)
+                           future_days=future_days,
+                           alerts=alerts)
+
 
 
 @app.route('/download_forecast')
