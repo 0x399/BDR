@@ -4,36 +4,132 @@
     <meta charset="UTF-8">
     <title>Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .flex-container {
+            display: flex;
+            gap: 2rem;
+            align-items: flex-start;
+        }
+        .flex-item {
+            flex: 1;
+        }
+        .file-list-box {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .file-button {
+            display: block;
+            width: calc(100% - 4px);
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: left;
+            text-decoration: none;
+            color: #333;
+            transition: background-color 0.3s;
+            box-sizing: border-box;
+        }
+        .file-button:hover {
+            background-color: #dcdcdc;
+        }
+        .centered-title {
+            text-align: center;
+        }
+        .month-form {
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <h1>Hello, you are logged in.</h1>
+    <header class="navbar">
+        <nav class="navbar-content">
+            <div class="nav-left">
+                <a href="{{ url_for('dashboard') }}">Дашборд</a>
+                <a href="{{ url_for('forecast') }}">Прогноз</a>
+                <a href="{{ url_for('upload') }}">Завантажити CSV</a>
+            </div>
+            <div class="nav-right">
+                <span class="welcome-text">Ласкаво просимо, {{ current_user.username }}</span>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </nav>
+    </header>
 
-    <p>
-        <a href="{{ url_for('dashboard') }}">Dashboard</a> |
-        <a href="{{ url_for('forecast') }}">Forecast</a> |
-        <a href="{{ url_for('upload') }}">Upload CSV</a> |
-        <a href="{{ url_for('logout') }}">Logout</a>
-    </p>
+    <div class="flex-container">
+        <div class="flex-item">
+            <h2 class="centered-title">Your Uploaded Files</h2>
+            <div class="file-list-box">
+                {% if files %}
+                    {% for file in files %}
+                        <a class="file-button" href="{{ url_for('dashboard', plot_file_id=file.id) }}">{{ file.filename }}</a>
+                    {% endfor %}
+                {% else %}
+                    <p>You haven't uploaded any files yet.</p>
+                {% endif %}
+            </div>
+        </div>
 
+        <div class="flex-item">
+            {% if available_months %}
+                <h2 class="centered-title">Місячна статистика</h2>
+                <form method="get" action="{{ url_for('dashboard') }}" class="month-form">
+                    <input type="hidden" name="plot_file_id" value="{{ selected_file.id }}">
+                    {% if request.args.get('start_date') %}
+                        <input type="hidden" name="start_date" value="{{ request.args.get('start_date') }}">
+                        <input type="hidden" name="end_date" value="{{ request.args.get('end_date') }}">
+                    {% endif %}
 
-    <h2>Your Uploaded Files</h2>
-    {% if files %}
-        <ul>
-            {% for file in files %}
-                <li>
-                    {{ file.filename }}
-                    [<a class="show-plot" href="{{ url_for('dashboard', plot_file_id=file.id) }}">Show Plot</a>]
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>You haven't uploaded any files yet.</p>
-    {% endif %}
+                    <label for="selected_month">Оберіть місяць:</label>
+                    <select name="selected_month" id="selected_month">
+                        <option value="">-- Всі --</option>
+                        {% for month in available_months %}
+                            <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>{{ month }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="submit" value="Показати">
+                </form>
+
+                {% if selected_month and monthly_stats %}
+                    <table class="monthly-stats">
+                        <thead>
+                            <tr>
+                                {% for col in monthly_stats[0].keys() %}
+                                    <th>{{ col }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in monthly_stats %}
+                                <tr>
+                                    {% for value in row.values() %}
+                                        <td>{{ value }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% elif selected_month %}
+                    <p><em>Немає статистики для обраного місяця.</em></p>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
 
     {% if selected_file %}
         <h3>Вибір періоду для побудови графіків</h3>
         <form method="get" action="{{ url_for('dashboard') }}">
             <input type="hidden" name="plot_file_id" value="{{ selected_file.id }}">
+            {% if selected_month %}
+                <input type="hidden" name="selected_month" value="{{ selected_month }}">
+            {% endif %}
 
             <label for="start_date">Початкова дата:</label>
             <input type="date" name="start_date" id="start_date"
@@ -86,9 +182,8 @@
             </div>
         </div>
 
-
         <h2>Лінійна регресія ({{ selected_file.filename }})</h2>
-        <div class="plot-container-grid">
+        <div class="plot-container-grid-3">
             <div class="plot-box">
                 <h3>Середня температура (лінійна регресія)</h3>
                 <img class="enlargeable" src="data:image/png;base64,{{ img_avg_regression }}" alt="Average Temperature Regression Plot">

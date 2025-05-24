@@ -83,6 +83,30 @@ class LoginForm(FlaskForm):
 def home():
     return redirect(url_for('login'))
 
+def calculate_monthly_stats(df):
+    df['date'] = pd.to_datetime(df['date'], format='%d.%m.%Y', dayfirst=True, errors='coerce')
+    df = df[pd.notnull(df['date'])]
+
+    df['month'] = df['date'].dt.to_period('M')
+
+    stats = df.groupby('month').agg({
+        'temp_max': 'max',
+        'temp_min': 'min',
+        'humidity': ['min', 'max'],
+        'pressure': ['min', 'max'],
+        'wind': ['min', 'max'],  # ← fixed
+        'precipitation': 'sum'
+    }).reset_index()
+
+    stats.columns = ['Місяць', 'Макс. температура', 'Мін. температура',
+                     'Мін. вологість', 'Макс. вологість',
+                     'Мін. тиск', 'Макс. тиск',
+                     'Мін. вітер', 'Макс. вітер',
+                     'Опади (сума)']
+
+    return stats
+
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -105,7 +129,7 @@ def dashboard():
     img_avg_regression = img_max_regression = img_min_regression = img_precipitation_regression = None
     img_humidity_regression = img_wind_regression = img_pressure_regression = None
     selected_file = first_date_html = last_date_html = None
-    first_date_str = last_date_str = None
+    first_date_str = last_date_str = monthly_stats = available_months = selected_month = None
 
     if plot_file_id:
         file_record = File.query.get_or_404(plot_file_id)
@@ -117,6 +141,7 @@ def dashboard():
         end_date_str = request.args.get('end_date')
 
         df_dates = pd.read_csv(file_record.filepath, delimiter=';', decimal=',', na_values=[''])
+        df_dates = df_dates[pd.notnull(df_dates['date'])]
         df_dates['date'] = pd.to_datetime(df_dates['date'], format='%d.%m.%Y', errors='coerce')
 
         if start_date_str and end_date_str:
@@ -154,6 +179,28 @@ def dashboard():
         img_pressure_regression = regression_images['pressure']
 
         selected_file = file_record
+        monthly_stats_df = calculate_monthly_stats(df_dates)
+
+        # Cast month column to string
+        monthly_stats_df['Місяць'] = monthly_stats_df['Місяць'].astype(str)
+
+        # Get list of available months for dropdown
+        available_months = monthly_stats_df['Місяць'].unique().tolist()
+
+        # Get user selection from query
+        selected_month = request.args.get('selected_month')
+
+        # Filter by selected month
+        if selected_month:
+            monthly_stats_df = monthly_stats_df[monthly_stats_df['Місяць'] == selected_month]
+
+        # Convert to list of dicts
+        monthly_stats = monthly_stats_df.to_dict(orient='records')
+
+        print("Available months:", available_months)
+        print("Selected month:", selected_month)
+        print("Filtered monthly stats:")
+        print(monthly_stats_df)
 
         if os.path.exists(temp_filtered_path):
             os.remove(temp_filtered_path)
@@ -172,7 +219,9 @@ def dashboard():
                            selected_file=selected_file,
                            first_date_html=first_date_html,
                            last_date_html=last_date_html,
-
+                           monthly_stats=monthly_stats,
+                           available_months=available_months,
+                           selected_month=selected_month,
                            img_avg_regression=img_avg_regression,
                            img_max_regression=img_max_regression,
                            img_min_regression=img_min_regression,
