@@ -5,8 +5,11 @@ import base64
 import plotly.graph_objects as go
 import numpy as np
 from prophet import Prophet
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 import plotly.express as px
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
 
 def generate_temp_avg_plot(csv_path: str) -> str:
     df = pd.read_csv(csv_path, delimiter=';', decimal=',', na_values=[''])
@@ -226,3 +229,73 @@ def generate_prophet_forecast_plot(csv_path: str, future_days: int, column_name:
                       template='plotly_white')
 
     return fig.to_html(full_html=False), future_only[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+
+
+def generate_rf_forecast_plot(csv_path: str, future_days: int, column_name: str, n_lags: int = 30):
+    df = pd.read_csv(csv_path, delimiter=';', decimal=',', na_values=[''])
+    df['date'] = pd.to_datetime(df['date'], format='%d.%m.%Y', errors='coerce')
+    df[column_name] = df[column_name].astype(str).str.replace(',', '.', regex=False)
+    df[column_name] = pd.to_numeric(df[column_name], errors='coerce')
+    df = df.dropna(subset=['date', column_name])
+    df.sort_values('date', inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    # Створення лагів
+    for lag in range(1, n_lags + 1):
+        df[f'lag_{lag}'] = df[column_name].shift(lag)
+    df.dropna(inplace=True)
+
+    # Навчальні дані
+    feature_cols = [f'lag_{lag}' for lag in range(1, n_lags + 1)]
+    train_df = df.copy()
+    X_train = train_df[feature_cols]
+    y_train = train_df[column_name]
+
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+
+    # Прогноз майбутніх днів
+    last_known = df.iloc[-n_lags:][column_name].tolist()
+    future_dates = pd.date_range(start=df['date'].max() + pd.Timedelta(days=1), periods=future_days, freq='D')
+    preds = []
+
+    for i in range(future_days):
+        input_vector = last_known[-n_lags:]
+        pred = model.predict([input_vector])[0]
+        preds.append(pred)
+        last_known.append(pred)
+
+    forecast_df = pd.DataFrame({
+        'ds': future_dates,
+        'yhat': preds
+    })
+
+    # Побудова графіка
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=forecast_df['ds'], y=forecast_df['yhat'],
+                             mode='lines+markers', name='Forecast',
+                             hovertemplate='Date: %{x}<br>Value: %{y:.2f}<extra></extra>',
+                             line=dict(color='green')))
+    fig.update_layout(title=f"Next {future_days} Days RF Forecast for {column_name}",
+                      xaxis_title='Date', yaxis_title=f'Predicted {column_name}',
+                      template='plotly_white')
+
+    return fig.to_html(full_html=False), forecast_df
+
+def calculate_temperature_sums(forecast_df, temp_column='yhat', active_threshold=5, bio_min=10):
+    active_sum = 0
+    effective_sum = 0
+
+    for t in forecast_df[temp_column]:
+        if pd.isna(t):
+            continue
+        if t > active_threshold:
+            active_sum += t
+        if t > bio_min:
+            effective_sum += (t - bio_min)
+
+    return {
+        'active_sum': round(active_sum, 2),
+        'effective_sum': round(effective_sum, 2),
+        'threshold': bio_min
+    }

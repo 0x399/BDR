@@ -46,6 +46,7 @@
         <a href="{{ url_for('dashboard') }}">Дашборд</a>
         <a href="{{ url_for('forecast') }}">Прогноз</a>
         <a href="{{ url_for('upload') }}">Завантажити CSV</a>
+        <a href="{{ url_for('about') }}">Мапа</a>
       </div>
       <div class="nav-right">
         <span class="welcome-text">Ласкаво просимо, {{ current_user.username }}</span>
@@ -105,6 +106,18 @@
       </div>
     {% endif %}
   </div>
+
+  {% if temperature_sums %}
+    <div class="container">
+      <div class="alerts mt-4" style="background-color: #e0f7fa; border-left: 4px solid #00acc1;">
+        <h5>Сумарні температури (на основі прогнозу):</h5>
+        <ul class="mb-0">
+          <li> Сума активних температур (&gt; 5 °C): <strong>{{ temperature_sums.active_sum }} °C</strong></li>
+          <li> Сума ефективних температур (&gt; {{ temperature_sums.threshold }} °C): <strong>{{ temperature_sums.effective_sum }} °C</strong></li>
+        </ul>
+      </div>
+    </div>
+  {% endif %}
 
   <!-- Spinner overlay -->
   <div id="loadingOverlay">

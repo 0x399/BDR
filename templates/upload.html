@@ -11,11 +11,6 @@
             background-color: #f8fafc;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        header.navbar {
-            width: 100%;
-            margin: 0;
-            padding: 0;
-        }
         .navbar-content {
             display: flex;
             justify-content: space-between;
@@ -24,8 +19,6 @@
             background-color: #212529;
             color: white;
             width: 100%;
-            max-width: 100%;
-            margin: 0;
         }
         .nav-left a, .nav-right a {
             margin-right: 1rem;
@@ -45,10 +38,11 @@
             <a href="{{ url_for('dashboard') }}">Дашборд</a>
             <a href="{{ url_for('forecast') }}">Прогноз</a>
             <a href="{{ url_for('upload') }}">Завантажити CSV</a>
+            <a href="{{ url_for('about') }}">Мапа</a>
         </div>
         <div class="nav-right">
             <span class="welcome-text">Ласкаво просимо, {{ current_user.username }}</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Вийти</a>
         </div>
     </nav>
 </header>

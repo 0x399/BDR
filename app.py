@@ -12,7 +12,8 @@ from flask import request, flash
 from werkzeug.utils import secure_filename
 from plot_generator import generate_temp_avg_plot, generate_temp_max_plot, generate_temp_min_plot, generate_wind_plot, \
     generate_humidity_plot, generate_pressure_plot, generate_precipitation_plot, \
-    generate_linear_regression_plots_all, generate_prophet_forecast_plot
+    generate_linear_regression_plots_all, generate_prophet_forecast_plot, \
+    generate_rf_forecast_plot, calculate_temperature_sums
 
 app = Flask(__name__)
 db = SQLAlchemy(app)
@@ -108,7 +109,6 @@ def calculate_monthly_stats(df):
     return stats
 
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -118,7 +118,12 @@ def login():
             if bcrypt.check_password_hash(user.password, form.password.data):
                 login_user(user)
                 return redirect(url_for('dashboard'))
+            else:
+                flash('Невірний пароль')  # Wrong password
+        else:
+            flash('Користувача з таким імʼям не знайдено')  # No such user
     return render_template('login.html', form=form)
+
 
 @app.route('/dashboard')
 @login_required
@@ -310,7 +315,7 @@ def forecast():
     plot_data = None
     selected_file = None
     future_days = selected_column = None
-    forecast_df = None
+    forecast_df = metrics = temperature_sums = None
     alerts = []  # список для попереджень
 
     if request.method == 'POST':
@@ -335,6 +340,11 @@ def forecast():
         # Генерація рекомендацій
         if forecast_df is not None and not forecast_df.empty:
             latest_values = forecast_df.tail(5)
+            temperature_sums = None
+
+            # Додаємо обчислення сумарних температур лише для відповідних стовпців
+            if selected_column in ['temp_avg', 'temp_max', 'temp_min']:
+                temperature_sums = calculate_temperature_sums(forecast_df)
             yhat_min = latest_values['yhat'].min()
             yhat_max = latest_values['yhat'].max()
             yhat_mean = latest_values['yhat'].mean()
@@ -355,6 +365,7 @@ def forecast():
 
     return render_template('forecast.html',
                            files=files,
+                           temperature_sums=temperature_sums,
                            plot_data=plot_data,
                            selected_file=selected_file,
                            selected_column=selected_column,
@@ -407,6 +418,11 @@ def download_forecast():
 def myfiles():
     files = File.query.filter_by(user_id=current_user.id).all()
     return render_template('myfiles.html', files=files)
+
+@app.route('/about')
+@login_required
+def about():
+    return render_template('about.html')
 
 
 if __name__ == "__main__":
